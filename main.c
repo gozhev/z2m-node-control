@@ -53,22 +53,27 @@ int main(int argc, char **argv)
 	int topic_length = 0;
 	MQTTClient_message* msg_in = NULL;
 
+	MQTTClient_message msg_out = MQTTClient_message_initializer;
+	MQTTClient_deliveryToken token = {0};
+	msg_out.qos = 1;
+	msg_out.retained = 0;
+
 	while (!g_quit) {
 		MQTTClient_receive(client, &topic_name, &topic_length, &msg_in, 200);
 		if (msg_in != NULL) {
 			cJSON *json = cJSON_ParseWithLength(
 					msg_in->payload, msg_in->payloadlen);
 			cJSON *action = cJSON_GetObjectItemCaseSensitive(json, "action");
-			if (cJSON_IsString(action) && (action->valuestring != NULL)
-					&& !strcmp(action->valuestring, "single")) {
-				MQTTClient_message msg_out = MQTTClient_message_initializer;
-				MQTTClient_deliveryToken token;
-
-				msg_out.payload = "{\"state_l1\":\"TOGGLE\",\"state_l2\":\"TOGGLE\"}";
-				msg_out.payloadlen = strlen(msg_out.payload);
-				msg_out.qos = 1;
-				msg_out.retained = 0;
-				MQTTClient_publishMessage(client, MQTT_TOPIC_RELAY "/set", &msg_out, &token);
+			if (cJSON_IsString(action) && (action->valuestring != NULL)) {
+				if (!strcmp(action->valuestring, "single")) {
+					msg_out.payload = "{\"state_l1\":\"TOGGLE\",\"state_l2\":\"TOGGLE\"}";
+					msg_out.payloadlen = strlen(msg_out.payload);
+					MQTTClient_publishMessage(client, MQTT_TOPIC_RELAY "/set", &msg_out, &token);
+				} else if (!strcmp(action->valuestring, "double")) {
+					msg_out.payload = "{\"state_l1\":\"OFF\",\"state_l2\":\"OFF\"}";
+					msg_out.payloadlen = strlen(msg_out.payload);
+					MQTTClient_publishMessage(client, MQTT_TOPIC_RELAY "/set", &msg_out, &token);
+				}
 			}
 			MQTTClient_free(topic_name);
 			MQTTClient_freeMessage(&msg_in);
